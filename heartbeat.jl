@@ -7,7 +7,7 @@ using ProgressBars
 using Statistics
 using VideoIO
 using NativeFileDialog
-using Plots
+using GLMakie
 
 include("functions/functions.jl")
 
@@ -18,29 +18,38 @@ ROI = select_ROI(f)
 df = get_values(ROI, f)
 
 #example plot by channel
-pR = Plots.plot(df[:,"time"], df[:,"valueR"],lc=:red); #semi colon suppress return; plot not displayed for now
-xlabel!("time in sec");
-ylabel!("average value");
-title!("red");
 
-pG = Plots.plot(df[:,"time"], df[:,"valueG"],lc=:green);
-xlabel!("time in sec");
-ylabel!("average value");
-title!("green");
+good_enough = Observable("unchecked")
 
-pB = Plots.plot(df[:,"time"], df[:,"valueB"],lc=:blue);
-xlabel!("time in sec");
-ylabel!("average value");
-title!("blue");
+fig = Figure()
 
-pRGB = plot(pR,pG,pB, layout=(2,2),size=(1000,800));
+pos = fig[1, 1]
+GLMakie.lines(pos, df[:,"time"], df[:,"valueR"], color = "red")
+pos2 = fig[1, 2]
+GLMakie.lines(pos2, df[:,"time"], df[:,"valueG"], color = "green")
+pos3 = fig[1, 3]
+GLMakie.lines(pos3, df[:,"time"], df[:,"valueB"], color = "blue")
 
+fig[2, 1] = buttongrid = GridLayout(tellwidth = false)
+buttonlabels = ["redo","done"]
+buttons = buttongrid[1, 1:2] = [Button(fig, label = l) for l in buttonlabels]
 
-io=PipeBuffer()
-png(pRGB,io::IO)
-ii=load(io);
-imshow(ii; canvassize = (1000, 800), name = "Select ROI")
+glfw_window = GLMakie.to_native(display(Makie.current_scene()))
 
+on(buttons[1].clicks) do n
+    good_enough[] = "no"
+    notify(good_enough)
+    GLMakie.GLFW.SetWindowShouldClose(glfw_window, true)
+end
+
+on(buttons[2].clicks) do y
+    good_enough[] = "yes"
+    notify(good_enough)
+    GLMakie.GLFW.SetWindowShouldClose(glfw_window, true)
+end
+
+# to do: find way to force figure to be on focus when called, to avoid double click issue (one to focus, one to click)
+fig
 
 
 
