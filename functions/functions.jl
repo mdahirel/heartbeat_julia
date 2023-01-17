@@ -95,3 +95,41 @@ function get_values(ROIcoords, f)   ## needs to move f creation away
     df = DataFrame(time = times, valueR = avgred, valueG = avggreen, valueB = avgblue)
     return df
 end
+
+
+function check_quality(df)
+    good_enough = Observable("unchecked")
+
+    fig = Figure()
+
+    pos = fig[1, 1]
+    GLMakie.lines(pos, df[:,"time"], df[:,"valueR"], color = "red")
+    pos2 = fig[1, 2]
+    GLMakie.lines(pos2, df[:,"time"], df[:,"valueG"], color = "green")
+    pos3 = fig[1, 3]
+    GLMakie.lines(pos3, df[:,"time"], df[:,"valueB"], color = "blue")
+
+    fig[2, 1] = buttongrid = GridLayout(tellwidth = false)
+    buttonlabels = ["redo","done"]
+    buttons = buttongrid[1, 1:2] = [Button(fig, label = l) for l in buttonlabels]
+
+    glfw_window = GLMakie.to_native(display(Makie.current_scene()))
+
+    on(buttons[1].clicks) do n
+        good_enough[] = "no"
+        notify(good_enough)
+        GLMakie.GLFW.SetWindowShouldClose(glfw_window, true)
+    end
+
+    on(buttons[2].clicks) do y
+        good_enough[] = "yes"
+        notify(good_enough)
+        GLMakie.GLFW.SetWindowShouldClose(glfw_window, true)
+    end
+
+    # to do: find way to force figure to be on focus when called, to avoid double click issue (one to focus, one to click)
+    fig
+
+    wait(display(fig))
+    return to_value(good_enough)
+end
