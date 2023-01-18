@@ -6,23 +6,18 @@ end
 
 
 
-function select_ROI(f, test_frames = 50)
-    #fps = Int(round(VideoIO.framerate(f)))
-    Nframes = counttotalframes(f)
-
-    ## Depending on video codec, above command may fail with ERROR: Could not send packet.
-    ## Probably because it tries to continue after last frame instead of stopping properly.
-    ## need encoding that is light, allow counttotalframes,
-    ## and doesn't cut frames at start (last one not deal breaker).
+function select_ROI(f; n_testframes::Int64 = 50)
 
     times = [] ##timestamps of each frame
     img = []
 
     seekstart(f)
-    ### we load a small set of frames (here 2sec worth)
+    ### we load a small set of frames (default 2sec at 25 fps, likely enough to see a beat)
     ### in order to determine the coordinates of the ROI
+    iter = ProgressBar(1 : n_testframes)
+    set_description(iter, "setting up ROI selection GUI")
 
-    for i in ProgressBar(1 : test_frames)
+    for i in iter
         if i == 1
             img = read(f)
         else
@@ -82,7 +77,10 @@ function get_values(ROIcoords, f)   ## needs to move f creation away
     avgblue = Float64[]
     seekstart(f)
 
-    for i in ProgressBar(1 : Nframes)
+    iter = ProgressBar(1 : Nframes)
+    set_description(iter, "processing full video")
+
+    for i in iter
         frame = read(f)
         cframe = frame[ROIcoords[:ylower]:ROIcoords[:yupper], ROIcoords[:xlower]:ROIcoords[:xupper]]
         push!(times, gettime(f))
@@ -92,44 +90,53 @@ function get_values(ROIcoords, f)   ## needs to move f creation away
         push!(avgblue, blue(framemean))
     end
 
+    #to do: export only one set of value if grayscale (avgred==avggreen==avgblue)?
+
     df = DataFrame(time = times, valueR = avgred, valueG = avggreen, valueB = avgblue)
     return df
 end
 
 
 function check_quality(df)
-    good_enough = Observable("unchecked")
+    local data_quality = Observable("unchecked")
 
     fig = Figure()
+    #to do: do only one plot if grayscale (avgred==avggreen==avgblue)?
+    info = Label(fig[1,1:3], "See whether beats can be distinguished from noise reliably by eye, then decide how to proceed:")
 
-    pos = fig[1, 1]
-    GLMakie.lines(pos, df[:,"time"], df[:,"valueR"], color = "red")
-    pos2 = fig[1, 2]
-    GLMakie.lines(pos2, df[:,"time"], df[:,"valueG"], color = "green")
-    pos3 = fig[1, 3]
-    GLMakie.lines(pos3, df[:,"time"], df[:,"valueB"], color = "blue")
+    pos = fig[2, 1]
+    GLMakie.lines(pos, df[:,"time"], df[:,"valueR"], color = "red", label ="red channel")
+    axislegend()
+    pos2 = fig[2, 2]
+    GLMakie.lines(pos2, df[:,"time"], df[:,"valueG"], color = "green", label ="green channel")
+    axislegend()
+    pos3 = fig[2, 3]
+    GLMakie.lines(pos3, df[:,"time"], df[:,"valueB"], color = "blue", label ="blue channel")
+    axislegend()
 
-    fig[2, 1] = buttongrid = GridLayout(tellwidth = false)
-    buttonlabels = ["redo","done"]
+    xlab = Label(fig[3,:], "Time (in seconds)")
+
+    fig[4, 2] = buttongrid = GridLayout(tellwidth = false)
+    buttonlabels = ["Need to redo","Looks OK, save"]
     buttons = buttongrid[1, 1:2] = [Button(fig, label = l) for l in buttonlabels]
 
     glfw_window = GLMakie.to_native(display(Makie.current_scene()))
 
     on(buttons[1].clicks) do n
-        good_enough[] = "no"
-        notify(good_enough)
+        data_quality[] = "no"
+        notify(data_quality)
         GLMakie.GLFW.SetWindowShouldClose(glfw_window, true)
     end
 
     on(buttons[2].clicks) do y
-        good_enough[] = "yes"
-        notify(good_enough)
+        data_quality[] = "yes"
+        notify(data_quality)
         GLMakie.GLFW.SetWindowShouldClose(glfw_window, true)
     end
 
-    # to do: find way to force figure to be on focus when called, to avoid double click issue (one to focus, one to click)
+    # to do?? find way to force figure to be on focus when called, to avoid double click issue (one to focus, one to click)
     fig
 
     wait(display(fig))
-    return to_value(good_enough)
+    return to_value(data_quality)
 end

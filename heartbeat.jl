@@ -15,16 +15,20 @@ filename = pick_file(filterlist="mp4")
 
 f = import_video(filename)
 
-dataOK="no"
+dataOK = "no"
 
 while dataOK == "no"
-    ROI = select_ROI(f)
-    df = get_values(ROI, f)
-
-    #example plot by channel
-
-    dataOK = check_quality(df)
+    ROI = select_ROI(f; n_testframes=50)
+    global df = get_values(ROI, f)
+    global dataOK = check_quality(df)
 end
 
-exportpath = save_file(split(filename,".")[1]; filterlist = "csv")
-CSV.write(exportpath, df)
+### for now an "unchecked" exit (by force closing the plot window for instance) will exit the while loop without allowing to save
+### should I change the behaviour? (so that "unchecked" behaves as "no" and continues the loop?)
+
+if dataOK == "yes"
+    # default export folder and name is same as source video but with extension changed to csv
+    exportname = split(filename,".")[1] * ".csv"
+    exportpath = save_file(exportname ; filterlist = "csv")
+    CSV.write(exportpath, df)
+end
