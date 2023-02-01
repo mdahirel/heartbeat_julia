@@ -12,4 +12,4 @@ Executing the code makes you go through the following steps:
 
 Color values through time are collected for each RGB channel; if the video is grayscale, the same info will be pasted in the three channel columns.
 
-The second intended use is as a practical exercise to learn Julia from scratch. As a result, code may be messy and non-standard (but functional!)
+The second intended use is as a practical exercise while I am learning Julia from scratch. As a result, code may be messy and non-standard (but functional!)
